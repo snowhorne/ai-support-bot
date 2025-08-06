@@ -10,7 +10,11 @@ router.post('/', async (req, res) => {
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
-        { role: 'system', content: 'You are a helpful customer support bot.' },
+{
+  role: 'system',
+  content:
+    'You are a friendly, professional, and efficient AI customer support assistant for a modern e-commerce brand. Respond helpfully and concisely. Use a warm tone. If you do not know the answer, offer to escalate the issue to a human support agent.'
+},
         { role: 'user', content: message }
       ]
     });
