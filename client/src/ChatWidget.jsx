@@ -42,7 +42,9 @@ function ChatWidget() {
     <div className="chat-container">
       {messages.map((msg, i) => (
         <div key={i} className={`chat-message ${msg.role}`}>
-          {msg.role === 'bot' && <img src="/bot-avatar.png" alt="bot" className="avatar" />}
+{msg.role === 'bot' && (
+  <img src={`${process.env.PUBLIC_URL}/bot-avatar.png`} alt="bot" className="avatar" />
+)}
           <div className="chat-bubble">{msg.content}</div>
         </div>
       ))}
