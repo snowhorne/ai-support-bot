@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './ChatWidget.css';
+import botAvatar from '../assets/bot-avatar.png';
 
 function ChatWidget() {
   const [messages, setMessages] = useState([]);
@@ -15,42 +16,39 @@ function ChatWidget() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/chat`, {
+      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: input })
       });
-      const data = await response.json();
+      const data = await res.json();
       const botMessage = { role: 'bot', content: data.reply };
       setMessages((prev) => [...prev, botMessage]);
-    } catch (err) {
-      console.error('Error:', err);
+    } catch {
       setMessages((prev) => [
         ...prev,
-        { role: 'bot', content: 'Something went wrong. Please try again.' }
+        { role: 'bot', content: 'Sorry, something went wrong.' }
       ]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') sendMessage();
-  };
+  const handleKeyDown = (e) => e.key === 'Enter' && sendMessage();
 
   return (
     <div className="chat-container">
       {messages.map((msg, i) => (
         <div key={i} className={`chat-message ${msg.role}`}>
-{msg.role === 'bot' && (
-  <img src={`${process.env.PUBLIC_URL}/bot-avatar.png`} alt="bot" className="avatar" />
-)}
+          {msg.role === 'bot' && (
+            <img src={botAvatar} alt="bot" className="avatar" />
+          )}
           <div className="chat-bubble">{msg.content}</div>
         </div>
       ))}
       {loading && (
         <div className="chat-message bot">
-          <img src={`${process.env.PUBLIC_URL}/bot-avatar.png`} alt="bot" className="avatar" />
+          <img src={botAvatar} alt="bot" className="avatar" />
           <div className="chat-bubble typing-indicator">Typing…</div>
         </div>
       )}
