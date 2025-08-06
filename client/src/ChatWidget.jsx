@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import './ChatWidget.css';
-import botAvatar from './assets/bot-avatar.png';
 
 function ChatWidget() {
   const [messages, setMessages] = useState([]);
@@ -43,14 +42,14 @@ function ChatWidget() {
       {messages.map((msg, i) => (
         <div key={i} className={`chat-message ${msg.role}`}>
           {msg.role === 'bot' && (
-            <img src={botAvatar} alt="bot" className="avatar" />
+            <img src="/bot-avatar.png" alt="bot" className="avatar" />
           )}
           <div className="chat-bubble">{msg.content}</div>
         </div>
       ))}
       {loading && (
         <div className="chat-message bot">
-          <img src={botAvatar} alt="bot" className="avatar" />
+          <img src="/bot-avatar.png" alt="bot" className="avatar" />
           <div className="chat-bubble typing-indicator">Typing…</div>
         </div>
       )}
