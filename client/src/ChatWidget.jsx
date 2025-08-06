@@ -44,8 +44,19 @@ function ChatWidget() {
         💬
       </button>
 
-      {isOpen && (
-        <div className="chat-popup">
+{isOpen && (
+  <div className="chat-popup">
+    <div className="chat-header">
+      <div className="chat-header-left">
+        <img src="/bot-avatar.png" alt="Bot" className="header-avatar" />
+        <div className="header-info">
+          <div className="bot-name">Ava</div>
+          <div className="bot-role">AI Support Assistant</div>
+        </div>
+      </div>
+      <button onClick={() => setIsOpen(false)}>✖</button>
+    </div>
+
           <div className="chat-container">
             {messages.map((msg, i) => (
               <div key={i} className={`chat-message ${msg.role}`}>
