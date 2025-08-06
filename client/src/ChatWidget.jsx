@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './ChatWidget.css';
-import botAvatar from '../assets/bot-avatar.png';
+import botAvatar from './assets/bot-avatar.png';
 
 function ChatWidget() {
   const [messages, setMessages] = useState([]);
