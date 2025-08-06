@@ -46,10 +46,6 @@ function ChatWidget() {
 
       {isOpen && (
         <div className="chat-popup">
-          <div className="chat-header">
-            <h4>Support Chat</h4>
-            <button onClick={() => setIsOpen(false)}>✖</button>
-          </div>
           <div className="chat-container">
             {messages.map((msg, i) => (
               <div key={i} className={`chat-message ${msg.role}`}>
@@ -84,3 +80,5 @@ function ChatWidget() {
 }
 
 export default ChatWidget;
+
+
