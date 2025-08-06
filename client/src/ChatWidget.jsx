@@ -44,18 +44,18 @@ function ChatWidget() {
         💬
       </button>
 
-{isOpen && (
-  <div className="chat-popup">
-    <div className="chat-header">
-      <div className="chat-header-left">
-        <img src="/bot-avatar.png" alt="Bot" className="header-avatar" />
-        <div className="header-info">
-          <div className="bot-name">Ava</div>
-          <div className="bot-role">AI Support Assistant</div>
-        </div>
-      </div>
-      <button onClick={() => setIsOpen(false)}>✖</button>
-    </div>
+      {isOpen && (
+        <div className="chat-popup">
+          <div className="chat-header">
+            <div className="chat-header-left">
+              <img src="/bot-avatar.png" alt="Bot" className="header-avatar" />
+              <div className="header-info">
+                <div className="bot-name">Ava</div>
+                <div className="bot-role">AI Support Assistant</div>
+              </div>
+            </div>
+            <button onClick={() => setIsOpen(false)} className="close-button">✖</button>
+          </div>
 
           <div className="chat-container">
             {messages.map((msg, i) => (
@@ -67,15 +67,15 @@ function ChatWidget() {
               </div>
             ))}
             {loading && (
-  <div className="chat-message bot">
-    <img src="/bot-avatar.png" alt="bot" className="avatar" />
-    <div className="chat-bubble typing-indicator">
-      <span className="typing-dot"></span>
-      <span className="typing-dot"></span>
-      <span className="typing-dot"></span>
-    </div>
-  </div>
-)}
+              <div className="chat-message bot">
+                <img src="/bot-avatar.png" alt="bot" className="avatar" />
+                <div className="chat-bubble typing-indicator">
+                  <span className="typing-dot"></span>
+                  <span className="typing-dot"></span>
+                  <span className="typing-dot"></span>
+                </div>
+              </div>
+            )}
           </div>
           <input
             type="text"
@@ -91,5 +91,3 @@ function ChatWidget() {
 }
 
 export default ChatWidget;
-
-
