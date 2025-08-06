@@ -34,7 +34,9 @@ function ChatWidget() {
     }
   };
 
-  const handleKeyDown = (e) => e.key === 'Enter' && sendMessage();
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') sendMessage();
+  };
 
   return (
     <div className="chat-container">
