@@ -60,11 +60,15 @@ function ChatWidget() {
               </div>
             ))}
             {loading && (
-              <div className="chat-message bot">
-                <img src="/bot-avatar.png" alt="bot" className="avatar" />
-                <div className="chat-bubble typing-indicator">Typing…</div>
-              </div>
-            )}
+  <div className="chat-message bot">
+    <img src="/bot-avatar.png" alt="bot" className="avatar" />
+    <div className="chat-bubble typing-indicator">
+      <span className="typing-dot"></span>
+      <span className="typing-dot"></span>
+      <span className="typing-dot"></span>
+    </div>
+  </div>
+)}
           </div>
           <input
             type="text"
