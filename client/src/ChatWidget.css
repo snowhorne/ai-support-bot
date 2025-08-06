@@ -153,3 +153,26 @@ input[type="text"] {
     opacity: 1;
   }
 }
+.chat-header {
+  position: relative;
+  padding: 10px;
+  background-color: #0070f3;
+  color: white;
+  font-weight: bold;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-header button {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  color: white;
+  cursor: pointer;
+}
