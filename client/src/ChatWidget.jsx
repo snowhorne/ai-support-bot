@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import './ChatWidget.css';
 import avatar from './assets/bot-avatar.png';
+
+// Generate and persist a userId in localStorage
+if (!localStorage.getItem('dijon_user_id')) {
+  localStorage.setItem('dijon_user_id', uuidv4());
+}
 
 const ChatWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,11 +28,14 @@ const ChatWidget = () => {
     setIsTyping(true);
 
     try {
+      const userId = localStorage.getItem('dijon_user_id');
+
       const response = await fetch('https://ai-support-bot.onrender.com/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input })
+        body: JSON.stringify({ message: input, userId })
       });
+
       const data = await response.json();
       setMessages(prev => [...prev, { sender: 'bot', text: data.reply }]);
     } catch (error) {
