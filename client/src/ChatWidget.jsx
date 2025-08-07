@@ -41,9 +41,17 @@ const ChatWidget = () => {
         body: JSON.stringify({ userId, message: input })
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Backend Error]', errorText);
+        throw new Error('Server returned error');
+      }
+
       const data = await response.json();
-      setMessages(prev => [...prev, { sender: 'bot', text: data.reply }]);
+      console.log('[Backend Reply]', data);
+      setMessages(prev => [...prev, { sender: 'bot', text: data.reply || 'No reply received.' }]);
     } catch (error) {
+      console.error('[Frontend Error]', error);
       setMessages(prev => [...prev, { sender: 'bot', text: 'Oops, something went wrong.' }]);
     } finally {
       setIsTyping(false);
