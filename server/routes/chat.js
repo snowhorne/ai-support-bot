@@ -15,6 +15,7 @@ router.post('/', async (req, res) => {
     await db.read();
     db.data ||= { conversations: [] };
 
+    // ✅ SAFE: lookup in array, no indexing
     let convo = db.data.conversations.find(c => c.userId === userId);
     if (!convo) {
       convo = { userId, messages: [] };
