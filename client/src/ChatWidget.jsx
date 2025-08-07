@@ -2,88 +2,73 @@ import React, { useState } from 'react';
 import './ChatWidget.css';
 
 function ChatWidget() {
+  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
+
+  const toggleChat = () => {
+    setIsOpen(!isOpen);
+  };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const userMessage = { role: 'user', content: input };
-    setMessages((prev) => [...prev, userMessage]);
+    const userMessage = { sender: 'user', text: input };
+    setMessages([...messages, userMessage]);
     setInput('');
-    setLoading(true);
 
     try {
-      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/chat`, {
+      const response = await fetch('/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input })
+        body: JSON.stringify({ message: input }),
       });
-      const data = await res.json();
-      const botMessage = { role: 'bot', content: data.reply };
-      setMessages((prev) => [...prev, botMessage]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'bot', content: 'Sorry, something went wrong.' }
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') sendMessage();
+      const data = await response.json();
+      const botMessage = { sender: 'bot', text: data.response };
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
   };
 
   return (
     <>
-      <button className="chat-toggle-button" onClick={() => setIsOpen(!isOpen)}>
+      <div className="chat-bubble" onClick={toggleChat}>
         💬
-      </button>
+      </div>
 
       {isOpen && (
         <div className="chat-popup">
           <div className="chat-header">
             <div className="chat-header-left">
-              <img src="/bot-avatar.png" alt="Bot" className="header-avatar" />
-              <div className="header-info">
-                <div className="bot-name">Dijon</div>
-                <div className="bot-role">AI Support Assistant</div>
-              </div>
+              <img src="/bot-avatar.png" alt="Dijon avatar" className="header-avatar" />
+              <span className="chat-header-title">Dijon</span>
             </div>
-            <button onClick={() => setIsOpen(false)} className="close-button">✖</button>
+            <button className="chat-close" onClick={toggleChat}>×</button>
           </div>
 
-          <div className="chat-container">
+          <div className="chat-body">
             {messages.map((msg, i) => (
-              <div key={i} className={`chat-message ${msg.role}`}>
-                {msg.role === 'bot' && (
-                  <img src="/bot-avatar.png" alt="bot" className="avatar" />
-                )}
-                <div className="chat-bubble">{msg.content}</div>
+              <div
+                key={i}
+                className={`chat-message ${msg.sender === 'user' ? 'user' : 'bot'}`}
+              >
+                {msg.text}
               </div>
             ))}
-            {loading && (
-              <div className="chat-message bot">
-                <img src="/bot-avatar.png" alt="bot" className="avatar" />
-                <div className="chat-bubble typing-indicator">
-                  <span className="typing-dot"></span>
-                  <span className="typing-dot"></span>
-                  <span className="typing-dot"></span>
-                </div>
-              </div>
-            )}
           </div>
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask a question..."
-          />
+
+          <div className="chat-input">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type your message..."
+              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+            />
+            <button onClick={sendMessage}>Send</button>
+          </div>
         </div>
       )}
     </>
