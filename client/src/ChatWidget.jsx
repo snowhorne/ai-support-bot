@@ -3,75 +3,76 @@ import './ChatWidget.css';
 
 function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState([
+    { sender: 'assistant', text: 'Hi there! I’m Dijon. How can I help you today?' }
+  ]);
   const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
 
-  const toggleChat = () => {
+  const handleToggle = () => {
     setIsOpen(!isOpen);
   };
 
-  const sendMessage = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     if (!input.trim()) return;
 
-    const userMessage = { sender: 'user', text: input };
-    setMessages([...messages, userMessage]);
+    const newMessages = [...messages, { sender: 'user', text: input }];
+    setMessages(newMessages);
     setInput('');
+    setIsTyping(true);
 
     try {
-      const response = await fetch('/chat', {
+      const response = await fetch('https://ai-support-bot.onrender.com/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({ messages: newMessages })
       });
 
       const data = await response.json();
-      const botMessage = { sender: 'bot', text: data.response };
-      setMessages(prev => [...prev, botMessage]);
-    } catch (error) {
-      console.error('Error sending message:', error);
+      setMessages([...newMessages, { sender: 'assistant', text: data.message }]);
+    } catch (err) {
+      setMessages([...newMessages, { sender: 'assistant', text: 'Sorry, something went wrong.' }]);
+    } finally {
+      setIsTyping(false);
     }
   };
 
   return (
-    <>
-      <div className="chat-bubble" onClick={toggleChat}>
-        💬
-      </div>
-
-      {isOpen && (
+    <div className="chat-widget">
+      {!isOpen ? (
+        <button className="chat-icon" onClick={handleToggle}>💬</button>
+      ) : (
         <div className="chat-popup">
           <div className="chat-header">
-            <div className="chat-header-left">
-              <img src="/bot-avatar.png" alt="Dijon avatar" className="header-avatar" />
-              <span className="chat-header-title">Dijon</span>
-            </div>
-            <button className="chat-close" onClick={toggleChat}>×</button>
+            <img src="/bot-avatar.png" alt="Avatar" className="chat-avatar" />
+            Dijon
+            <button className="chat-close" onClick={handleToggle}>×</button>
           </div>
-
-          <div className="chat-body">
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`chat-message ${msg.sender === 'user' ? 'user' : 'bot'}`}
-              >
+          <div className="chat-messages">
+            {messages.map((msg, idx) => (
+              <div key={idx} className={`chat-message ${msg.sender}`}>
                 {msg.text}
               </div>
             ))}
+            {isTyping && (
+              <div className="chat-message assistant">
+                <em>Dijon is typing...</em>
+              </div>
+            )}
           </div>
-
-          <div className="chat-input">
+          <form className="chat-input" onSubmit={handleSubmit}>
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type your message..."
-              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
             />
-            <button onClick={sendMessage}>Send</button>
-          </div>
+            <button type="submit">Send</button>
+          </form>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
