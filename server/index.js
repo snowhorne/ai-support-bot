@@ -7,13 +7,13 @@ const chatRoute = require('./routes/chat');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ✅ Apply CORS first
+// ✅ Explicit CORS config for Render + Vercel
 const allowedOrigins = [
   'http://localhost:3000',
   'https://ai-support-bot-mu.vercel.app'
 ];
 
-app.use(cors({
+const corsOptions = {
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -22,15 +22,15 @@ app.use(cors({
     }
   },
   methods: ['GET', 'POST', 'OPTIONS'],
-  credentials: false
-}));
+  allowedHeaders: ['Content-Type'],
+  optionsSuccessStatus: 200
+};
 
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // <-- preflight support
 app.use(express.json());
 
-// ✅ Handle preflight OPTIONS request globally
-app.options('*', cors());
-
-// ✅ Optional request logging
+// Log requests for debug
 app.use((req, res, next) => {
   console.log(`[${req.method}] ${req.originalUrl}`);
   next();
@@ -41,10 +41,8 @@ app.get('/', (req, res) => {
   res.send('Dijon backend is live 🚀');
 });
 
-// Chat route
 app.use('/api/chat', chatRoute);
 
-// Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
