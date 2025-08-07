@@ -6,8 +6,12 @@ const file = path.join(__dirname, 'db.json');
 const adapter = new JSONFile(file);
 const db = new Low(adapter);
 
-db.read().then(() => {
+async function init() {
+  await db.read();
   db.data ||= { conversations: [] };
-});
+  await db.write(); // Ensure default is saved
+}
+
+init();
 
 module.exports = db;
