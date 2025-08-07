@@ -3,10 +3,15 @@ import { v4 as uuidv4 } from 'uuid';
 import './ChatWidget.css';
 import avatar from './assets/bot-avatar.png';
 
-// Generate and persist a userId in localStorage
-if (!localStorage.getItem('dijon_user_id')) {
-  localStorage.setItem('dijon_user_id', uuidv4());
-}
+// Helper to get or create a persistent user ID
+const getUserId = () => {
+  let id = localStorage.getItem('dijon_user_id');
+  if (!id) {
+    id = uuidv4();
+    localStorage.setItem('dijon_user_id', id);
+  }
+  return id;
+};
 
 const ChatWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -16,6 +21,8 @@ const ChatWidget = () => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
+
+  const userId = getUserId(); // Ensure persistent user ID
 
   const toggleChat = () => setIsOpen(!isOpen);
 
@@ -28,12 +35,10 @@ const ChatWidget = () => {
     setIsTyping(true);
 
     try {
-      const userId = localStorage.getItem('dijon_user_id');
-
       const response = await fetch('https://ai-support-bot.onrender.com/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input, userId })
+        body: JSON.stringify({ userId, message: input })
       });
 
       const data = await response.json();
