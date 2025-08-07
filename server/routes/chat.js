@@ -14,7 +14,7 @@ router.post('/chat', async (req, res) => {
   await db.read();
   db.data ||= { conversations: [] };
 
-  // ✅ FIX: use array-based lookup
+  // ✅ Correct array-based lookup
   let convo = db.data.conversations.find(c => c.userId === userId);
   if (!convo) {
     convo = { userId, messages: [] };
