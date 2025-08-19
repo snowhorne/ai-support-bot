@@ -12,20 +12,31 @@ router.post('/chat', async (req, res) => {
   }
 
   try {
+    console.log('Incoming request:', { userId, message });
     await db.read();
+    console.log('Database after read:', db.data);
+
+    // Ensure default structure
     db.data ||= { conversations: {} };
 
+    // Initialize user if not present
     if (!db.data.conversations[userId]) {
-      db.data.conversations[userId] = [];
+      db.data.conversations[userId] = { messages: [] };
     }
 
-    db.data.conversations[userId].push({ role: 'user', content: message });
+    // Store user's message
+    db.data.conversations[userId].messages.push({ role: 'user', content: message });
 
-    const context = db.data.conversations[userId].slice(-10);
+    // Get last 10 messages as context
+    const context = db.data.conversations[userId].messages.slice(-10);
+
+    // Get AI reply
     const aiReply = await getAIResponse(context);
 
-    db.data.conversations[userId].push({ role: 'assistant', content: aiReply });
+    // Store assistant's reply
+    db.data.conversations[userId].messages.push({ role: 'assistant', content: aiReply });
 
+    // Persist conversation
     await db.write();
 
     console.log(`[REPLY] ${aiReply}`);
