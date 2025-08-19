@@ -1,7 +1,9 @@
-console.log('INDEX_FINGERPRINT v4 - /server/index.js (ESM)');
+// server/index.js
+console.log('INDEX_FINGERPRINT v5 - /server/index.js (ESM)');
 
 import express from 'express';
 import chatRouter from './routes/chat.js';
+import db from './db.js'; // used for /debug/db
 
 const app = express();
 
@@ -40,12 +42,24 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '1mb' }));
 
+// Health check
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, time: new Date().toISOString(), allowedOrigins });
+  res.json({
+    ok: true,
+    time: new Date().toISOString(),
+    allowedOrigins,
+  });
 });
 
+// 🔍 TEMP DEBUG: view LowDB contents (remove before production)
+app.get('/debug/db', (_req, res) => {
+  res.json(db.data);
+});
+
+// API routes
 app.use('/api/chat', chatRouter);
 
+// Start server
 const port = process.env.PORT || 10000;
 app.listen(port, () => {
   console.log(`Server listening on :${port}`);
