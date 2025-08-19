@@ -1,52 +1,52 @@
-require('dotenv').config();
+console.log('INDEX_FINGERPRINT v4 - /server/index.js (ESM)');
 
-const express = require('express');
-const cors = require('cors');
-const chatRoute = require('./routes/chat');
+import express from 'express';
+import chatRouter from './routes/chat.js';
 
 const app = express();
-const PORT = process.env.PORT || 10000;
 
-// ✅ Allowed origins for local dev + Vercel frontend
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://ai-support-bot-mu.vercel.app'
-];
+// --- CORS (preflight + allowed origins from env) ---
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
 
-// ✅ CORS config (safe fallback on disallowed origins)
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn('Blocked by CORS:', origin);
-      callback(null, false); // Don't crash, just deny
-    }
-  },
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type'],
-  optionsSuccessStatus: 200
-};
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Preflight support
-app.use(express.json());
-
-// ✅ Request logging for debugging
+// Manual CORS so we fully control preflight
 app.use((req, res, next) => {
-  console.log(`[${req.method}] ${req.originalUrl}`);
-  next();
+  const origin = req.headers.origin;
+  const allowThisOrigin =
+    allowedOrigins.length === 0 || (origin && allowedOrigins.includes(origin));
+
+  if (allowThisOrigin && origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (allowedOrigins.length === 0) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization, X-Requested-With'
+  );
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204); // important for preflight
+  }
+
+  return next();
 });
 
-// ✅ Health check route
-app.get('/', (req, res) => {
-  res.send('Dijon backend is live 🚀');
+app.use(express.json({ limit: '1mb' }));
+
+app.get('/health', (_req, res) => {
+  res.json({ ok: true, time: new Date().toISOString(), allowedOrigins });
 });
 
-// ✅ Main chat route
-app.use('/api/chat', chatRoute);
+app.use('/api/chat', chatRouter);
 
-// ✅ Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const port = process.env.PORT || 10000;
+app.listen(port, () => {
+  console.log(`Server listening on :${port}`);
 });

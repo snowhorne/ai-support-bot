@@ -1,16 +1,12 @@
-// server/db.js
+import { JSONFilePreset } from 'lowdb/node';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
-import { JSONFile } from 'lowdb/node';
-import { Low } from 'lowdb';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const dbPath = path.join(__dirname, 'db.json');
 
-const adapter = new JSONFile('db.json');
-const db = new Low(adapter);
-
-await db.read();
-
-// ✅ Set default structure if db.json is empty
-db.data ||= { conversations: [] };
-
-await db.write();
+// Initialize with defaults to prevent "missing default data"
+const db = await JSONFilePreset(dbPath, { conversations: {} });
 
 export default db;
