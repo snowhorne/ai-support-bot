@@ -1,17 +1,16 @@
-const { Low } = require('lowdb');
-const { JSONFile } = require('lowdb/node');
-const path = require('path');
+// server/db.js
 
-const file = path.join(__dirname, 'db.json');
-const adapter = new JSONFile(file);
+import { JSONFile } from 'lowdb/node';
+import { Low } from 'lowdb';
+
+const adapter = new JSONFile('db.json');
 const db = new Low(adapter);
 
-async function init() {
-  await db.read();
-  db.data ||= { conversations: [] };
-  await db.write(); // Ensure default is saved
-}
+await db.read();
 
-init();
+// ✅ Set default structure if db.json is empty
+db.data ||= { conversations: [] };
 
-module.exports = db;
+await db.write();
+
+export default db;
