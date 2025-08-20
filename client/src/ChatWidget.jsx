@@ -1,3 +1,4 @@
+import { sendToDijon } from '../lib/dijon';
 import React, { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import './ChatWidget.css';
@@ -35,24 +36,18 @@ const ChatWidget = () => {
     setIsTyping(true);
 
     try {
-      const response = await fetch('https://ai-support-bot.onrender.com/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, message: input })
-      });
+      const reply = await sendToDijon(userId, input);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[Backend Error]', errorText);
-        throw new Error('Server returned error');
-      }
-
-      const data = await response.json();
-      console.log('[Backend Reply]', data);
-      setMessages(prev => [...prev, { sender: 'bot', text: data.reply || 'No reply received.' }]);
+      setMessages(prev => [
+        ...prev,
+        { sender: 'bot', text: reply || 'No reply received.' }
+      ]);
     } catch (error) {
       console.error('[Frontend Error]', error);
-      setMessages(prev => [...prev, { sender: 'bot', text: 'Oops, something went wrong.' }]);
+      setMessages(prev => [
+        ...prev,
+        { sender: 'bot', text: error.message || 'Oops, something went wrong.' }
+      ]);
     } finally {
       setIsTyping(false);
     }
