@@ -1,4 +1,4 @@
-import { sendToDijon } from '../lib/dijon';
+import { sendToDijon } from './lib/dijon';
 import React, { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import './ChatWidget.css';
