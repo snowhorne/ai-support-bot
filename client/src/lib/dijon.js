@@ -10,7 +10,7 @@ const API_BASE =
 
 export async function sendToDijon(userId, message) {
   const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), 15000); // 15s client timeout
+  const t = setTimeout(() => controller.abort(), 30000); // 15s client timeout
 
   try {
     const res = await fetch(`${API_BASE}/api/chat`, {
