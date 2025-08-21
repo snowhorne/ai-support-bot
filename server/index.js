@@ -1,88 +1,91 @@
 // server/index.js
-console.log('INDEX_FINGERPRINT v7 - /server/index.js (ESM, normalized CORS)');
-
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import chatRouter from './routes/chat.js';
-import db from './db.js'; // used for /debug/db
 
 const app = express();
 
-/* ---------------------- CORS (hardened + normalized) ---------------------- *
- * - Reads allowed origins from CORS_ORIGINS env (comma-separated)
- * - Normalizes (lowercase + strip trailing slashes) before comparison
- * - Mirrors Access-Control-Request-Method / -Headers from the request
- * - Ensures headers are set BEFORE returning 204 for OPTIONS
- * -------------------------------------------------------------------------- */
-const normalize = (s) => (s || '').trim().replace(/\/+$/, '').toLowerCase();
+// IMPORTANT: behind a proxy (Render/Cloudflare) so we see the real client IP
+app.set('trust proxy', 1);
 
-const ALLOWED = (process.env.CORS_ORIGINS ?? '')
+// -------- CORS (keeps your hardened behavior) --------
+const normalizeOrigin = (o) => (o ? o.replace(/\/+$/, '').toLowerCase() : '');
+const ALLOWED = (process.env.CORS_ORIGINS || '')
   .split(',')
-  .map(normalize)
+  .map(normalizeOrigin)
   .filter(Boolean);
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  const normOrigin = normalize(origin);
-  const isAllowed = !!origin && (ALLOWED.length === 0 || ALLOWED.includes(normOrigin));
-
-  // Optional debug: set CORS_DEBUG=1 in env to log
-  if (process.env.CORS_DEBUG) {
-    console.log('[CORS]', {
-      method: req.method,
-      path: req.path,
-      origin,
-      normOrigin,
-      isAllowed,
-      ALLOWED,
-      reqMethod: req.headers['access-control-request-method'],
-      reqHeaders: req.headers['access-control-request-headers'],
-    });
-  }
-
-  if (isAllowed) {
-    // Echo the raw Origin (not normalized) so the browser accepts it
-    res.setHeader('Access-Control-Allow-Origin', origin);
+function setCors(req, res) {
+  const reqOrigin = normalizeOrigin(req.headers.origin || '');
+  if (ALLOWED.includes(reqOrigin)) {
+    res.setHeader('Access-Control-Allow-Origin', reqOrigin);
     res.setHeader('Vary', 'Origin');
-
-    // Mirror requested method/headers if provided
-    const reqMethod = req.headers['access-control-request-method'];
-    const reqHeaders = req.headers['access-control-request-headers'];
-
-    res.setHeader('Access-Control-Allow-Methods', reqMethod || 'GET,POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', reqHeaders || 'content-type,authorization');
-    res.setHeader('Access-Control-Max-Age', '86400'); // cache preflight for 24h
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
+  const acrm = req.headers['access-control-request-method'];
+  const acrh = req.headers['access-control-request-headers'];
+  if (acrm) res.setHeader('Access-Control-Allow-Methods', acrm);
+  if (acrh) res.setHeader('Access-Control-Allow-Headers', acrh);
+  res.setHeader('Access-Control-Max-Age', '600');
+}
 
+// CORS + preflight short‑circuit (headers set BEFORE 204)
+app.use((req, res, next) => {
+  setCors(req, res);
   if (req.method === 'OPTIONS') {
-    // Always end preflight quickly
     return res.status(204).end();
   }
-
   next();
 });
 
-/* ---------------------- Body parser ---------------------- */
+// Basic request log (concise)
+app.use((req, _res, next) => {
+  console.log(`[req] ${req.method} ${req.path} ip=${req.ip}`);
+  next();
+});
+
 app.use(express.json({ limit: '1mb' }));
 
-/* ---------------------- Health ---------------------- */
-app.get('/health', (_req, res) => {
+// -------- Health --------
+app.get('/health', (req, res) => {
   res.json({
     ok: true,
-    time: new Date().toISOString(),
-    allowedOrigins: ALLOWED, // normalized list (no trailing slashes)
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
   });
 });
 
-/* ---------------------- Debug DB (remove for prod) ---------------------- */
-app.get('/debug/db', (_req, res) => {
-  res.json(db.data);
+// -------- Rate limiting for /api/chat --------
+// 30 requests / 5 minutes per IP; skip HEALTH & OPTIONS
+const chatLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true, // RateLimit-* headers
+  legacyHeaders: false,
+  keyGenerator: (req /*, res */) => req.ip, // trust proxy enabled above
+  skip: (req /*, res */) =>
+    req.method === 'OPTIONS' || req.path === '/health',
+  handler: (req, res /*, next, options */) => {
+    // Friendly JSON for the frontend
+    const reset =
+      (res.getHeader('RateLimit-Reset') && Number(res.getHeader('RateLimit-Reset'))) ||
+      undefined;
+    res.status(429).json({
+      error: 'Too many requests',
+      detail: 'Please wait a bit and try again.',
+      retryAfterSeconds: reset,
+    });
+  },
 });
 
-/* ---------------------- API routes ---------------------- */
-app.use('/api/chat', chatRouter);
+app.use('/api/chat', chatLimiter, chatRouter);
 
-/* ---------------------- Start server ---------------------- */
-const port = process.env.PORT || 10000;
-app.listen(port, () => {
-  console.log(`Server listening on :${port}`);
+// -------- Start server --------
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(
+    `[server] Listening on ${PORT}. Allowed origins: ${
+      ALLOWED.length ? ALLOWED.join(', ') : '(none)'
+    }`
+  );
 });
