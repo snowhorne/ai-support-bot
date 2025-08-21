@@ -2,13 +2,14 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import chatRouter from './routes/chat.js';
+import { prisma } from './lib/prisma.js';
 
 const app = express();
 
-// Behind proxy (Render/Cloudflare) so req.ip is real client IP
+// Render/Cloudflare proxy → trust first proxy to get real client IP
 app.set('trust proxy', 1);
 
-// -------- CORS (unchanged behavior) --------
+// -------- CORS (keeps your hardened behavior) --------
 const normalizeOrigin = (o) => (o ? o.replace(/\/+$/, '').toLowerCase() : '');
 const ALLOWED = (process.env.CORS_ORIGINS || '')
   .split(',')
@@ -46,7 +47,7 @@ app.use((req, _res, next) => {
 
 app.use(express.json({ limit: '1mb' }));
 
-// -------- Health --------
+// -------- Basic health --------
 app.get('/health', (req, res) => {
   res.json({
     ok: true,
@@ -55,19 +56,33 @@ app.get('/health', (req, res) => {
   });
 });
 
+// -------- DB health (Prisma SELECT 1) --------
+app.get('/health/db', async (req, res) => {
+  try {
+    // Lightweight connectivity check
+    const rows = await prisma.$queryRaw`SELECT 1 as ok`;
+    return res.json({ ok: true, db: rows });
+  } catch (err) {
+    console.error('[health/db] DB check failed:', err);
+    return res.status(500).json({ ok: false, error: 'DB unreachable' });
+  }
+});
+
 // -------- Rate limiting for /api/chat --------
-// 30 requests / 5 minutes per IP; skip OPTIONS & /health
+// 30 requests / 5 minutes per IP; skip OPTIONS & /health*
 const chatLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
-  max: 30, // <-- IMPORTANT: use `max` (not `limit`)
-  standardHeaders: true,  // RateLimit, RateLimit-Policy, etc.
-  legacyHeaders: false,   // hide X-RateLimit-* (we add our own debug header below)
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
   keyGenerator: (req) => req.ip,
-  skip: (req) => req.method === 'OPTIONS' || req.path === '/health',
+  skip: (req) =>
+    req.method === 'OPTIONS' ||
+    req.path === '/health' ||
+    req.path === '/health/db',
   handler: (req, res) => {
     const reset = Number(res.getHeader('RateLimit-Reset')) || undefined;
     res
-      // helpful for quick testing in dev tools
       .setHeader('X-Dijon-RateLimit', String(res.getHeader('RateLimit') || ''))
       .setHeader(
         'X-Dijon-RateLimit-Remaining',
@@ -82,11 +97,10 @@ const chatLimiter = rateLimit({
   },
 });
 
-// Add limiter first, then an inspector to mirror remaining quota (for 200s)
-app.use('/api/chat',
+app.use(
+  '/api/chat',
   chatLimiter,
   (req, res, next) => {
-    // Expose remaining tokens in a debug header (handy when 200)
     const remaining = res.getHeader('RateLimit-Remaining');
     if (remaining !== undefined) {
       res.setHeader('X-Dijon-RateLimit-Remaining', String(remaining));
@@ -95,6 +109,38 @@ app.use('/api/chat',
   },
   chatRouter
 );
+
+// -------- Admin metrics (protected by ADMIN_TOKEN) --------
+app.get('/admin/metrics', async (req, res) => {
+  try {
+    const token = req.header('x-admin-token') || '';
+    const expected = process.env.ADMIN_TOKEN || '';
+    if (!expected || token !== expected) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const [users, convos, msgs, lastMsg] = await Promise.all([
+      prisma.user.count(),
+      prisma.conversation.count(),
+      prisma.message.count(),
+      prisma.message.findFirst({
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      }),
+    ]);
+
+    return res.json({
+      users,
+      conversations: convos,
+      messages: msgs,
+      lastActivity: lastMsg?.createdAt || null,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[admin/metrics] failed:', err);
+    return res.status(500).json({ error: 'Metrics error' });
+  }
+});
 
 // -------- Start server --------
 const PORT = process.env.PORT || 10000;

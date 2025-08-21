@@ -5,18 +5,17 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "start:migrate": "npx prisma migrate deploy && node index.js",
-    "postinstall": "prisma generate",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate:dev": "prisma migrate dev",
-    "prisma:migrate:deploy": "prisma migrate deploy"
+    "start:migrate": "npx prisma migrate deploy --schema ./prisma/schema.prisma && node index.js",
+    "postinstall": "prisma generate --schema ./prisma/schema.prisma",
+    "prisma:generate": "prisma generate --schema ./prisma/schema.prisma",
+    "prisma:migrate:dev": "prisma migrate dev --schema ./prisma/schema.prisma",
+    "prisma:migrate:deploy": "prisma migrate deploy --schema ./prisma/schema.prisma"
   },
   "dependencies": {
     "@prisma/client": "^6.14.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "express-rate-limit": "^8.0.1",
-    "lowdb": "6.0.1",
     "openai": "^4.23.0"
   },
   "engines": {
