@@ -1,5 +1,5 @@
 // server/index.js
-console.log('INDEX_FINGERPRINT v6 - /server/index.js (ESM)');
+console.log('INDEX_FINGERPRINT v7 - /server/index.js (ESM, normalized CORS)');
 
 import express from 'express';
 import chatRouter from './routes/chat.js';
@@ -7,38 +7,44 @@ import db from './db.js'; // used for /debug/db
 
 const app = express();
 
-/* ---------------------- CORS (hardened) ---------------------- *
+/* ---------------------- CORS (hardened + normalized) ---------------------- *
  * - Reads allowed origins from CORS_ORIGINS env (comma-separated)
+ * - Normalizes (lowercase + strip trailing slashes) before comparison
  * - Mirrors Access-Control-Request-Method / -Headers from the request
  * - Ensures headers are set BEFORE returning 204 for OPTIONS
- * ------------------------------------------------------------- */
+ * -------------------------------------------------------------------------- */
+const normalize = (s) => (s || '').trim().replace(/\/+$/, '').toLowerCase();
+
 const ALLOWED = (process.env.CORS_ORIGINS ?? '')
   .split(',')
-  .map(s => s.trim())
+  .map(normalize)
   .filter(Boolean);
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  // allow all if ALLOWED empty (dev fallback), else only exact matches
-  const isAllowed = !!origin && (ALLOWED.length === 0 || ALLOWED.includes(origin));
+  const normOrigin = normalize(origin);
+  const isAllowed = !!origin && (ALLOWED.length === 0 || ALLOWED.includes(normOrigin));
 
-  // Optional debug (set CORS_DEBUG=1 on Render to print)
+  // Optional debug: set CORS_DEBUG=1 in env to log
   if (process.env.CORS_DEBUG) {
     console.log('[CORS]', {
       method: req.method,
       path: req.path,
       origin,
+      normOrigin,
       isAllowed,
+      ALLOWED,
       reqMethod: req.headers['access-control-request-method'],
       reqHeaders: req.headers['access-control-request-headers'],
     });
   }
 
   if (isAllowed) {
+    // Echo the raw Origin (not normalized) so the browser accepts it
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
 
-    // Mirror requested method/headers if present (some browsers want echo)
+    // Mirror requested method/headers if provided
     const reqMethod = req.headers['access-control-request-method'];
     const reqHeaders = req.headers['access-control-request-headers'];
 
@@ -48,8 +54,7 @@ app.use((req, res, next) => {
   }
 
   if (req.method === 'OPTIONS') {
-    // Always end preflight quickly.
-    // If not allowed, no ACAO is set and the browser will block (expected).
+    // Always end preflight quickly
     return res.status(204).end();
   }
 
@@ -64,7 +69,7 @@ app.get('/health', (_req, res) => {
   res.json({
     ok: true,
     time: new Date().toISOString(),
-    allowedOrigins: ALLOWED,
+    allowedOrigins: ALLOWED, // normalized list (no trailing slashes)
   });
 });
 
