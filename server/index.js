@@ -5,10 +5,10 @@ import chatRouter from './routes/chat.js';
 
 const app = express();
 
-// IMPORTANT: behind a proxy (Render/Cloudflare) so we see the real client IP
+// Behind proxy (Render/Cloudflare) so req.ip is real client IP
 app.set('trust proxy', 1);
 
-// -------- CORS (keeps your hardened behavior) --------
+// -------- CORS (unchanged behavior) --------
 const normalizeOrigin = (o) => (o ? o.replace(/\/+$/, '').toLowerCase() : '');
 const ALLOWED = (process.env.CORS_ORIGINS || '')
   .split(',')
@@ -38,7 +38,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Basic request log (concise)
+// Concise request log
 app.use((req, _res, next) => {
   console.log(`[req] ${req.method} ${req.path} ip=${req.ip}`);
   next();
@@ -56,29 +56,45 @@ app.get('/health', (req, res) => {
 });
 
 // -------- Rate limiting for /api/chat --------
-// 30 requests / 5 minutes per IP; skip HEALTH & OPTIONS
+// 30 requests / 5 minutes per IP; skip OPTIONS & /health
 const chatLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
-  limit: 30,
-  standardHeaders: true, // RateLimit-* headers
-  legacyHeaders: false,
-  keyGenerator: (req /*, res */) => req.ip, // trust proxy enabled above
-  skip: (req /*, res */) =>
-    req.method === 'OPTIONS' || req.path === '/health',
-  handler: (req, res /*, next, options */) => {
-    // Friendly JSON for the frontend
-    const reset =
-      (res.getHeader('RateLimit-Reset') && Number(res.getHeader('RateLimit-Reset'))) ||
-      undefined;
-    res.status(429).json({
-      error: 'Too many requests',
-      detail: 'Please wait a bit and try again.',
-      retryAfterSeconds: reset,
-    });
+  max: 30, // <-- IMPORTANT: use `max` (not `limit`)
+  standardHeaders: true,  // RateLimit, RateLimit-Policy, etc.
+  legacyHeaders: false,   // hide X-RateLimit-* (we add our own debug header below)
+  keyGenerator: (req) => req.ip,
+  skip: (req) => req.method === 'OPTIONS' || req.path === '/health',
+  handler: (req, res) => {
+    const reset = Number(res.getHeader('RateLimit-Reset')) || undefined;
+    res
+      // helpful for quick testing in dev tools
+      .setHeader('X-Dijon-RateLimit', String(res.getHeader('RateLimit') || ''))
+      .setHeader(
+        'X-Dijon-RateLimit-Remaining',
+        String(res.getHeader('RateLimit-Remaining') || '')
+      )
+      .status(429)
+      .json({
+        error: 'Too many requests',
+        detail: 'Please wait a bit and try again.',
+        retryAfterSeconds: reset,
+      });
   },
 });
 
-app.use('/api/chat', chatLimiter, chatRouter);
+// Add limiter first, then an inspector to mirror remaining quota (for 200s)
+app.use('/api/chat',
+  chatLimiter,
+  (req, res, next) => {
+    // Expose remaining tokens in a debug header (handy when 200)
+    const remaining = res.getHeader('RateLimit-Remaining');
+    if (remaining !== undefined) {
+      res.setHeader('X-Dijon-RateLimit-Remaining', String(remaining));
+    }
+    next();
+  },
+  chatRouter
+);
 
 // -------- Start server --------
 const PORT = process.env.PORT || 10000;
