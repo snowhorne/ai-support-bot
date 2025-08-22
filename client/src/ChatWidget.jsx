@@ -65,8 +65,8 @@ const getOrCreateUserId = () => {
 };
 
 export default function ChatWidget() {
-- const [open, setOpen] = useState(true);
-+ const [open, setOpen] = useState(false);
+  // ⬇️ start closed by default
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
@@ -90,12 +90,18 @@ export default function ChatWidget() {
     try {
       const { reply, error, detail } = await sendToDijon(userId, text);
       if (error) {
-        setMessages((m) => [...m, { role: "assistant", content: detail || "Hmm, I hit a snag. Please try again." }]);
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", content: detail || "Hmm, I hit a snag. Please try again." },
+        ]);
       } else {
         setMessages((m) => [...m, { role: "assistant", content: reply || "…" }]);
       }
     } catch {
-      setMessages((m) => [...m, { role: "assistant", content: "Network error. Please try again in a moment." }]);
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: "Network error. Please try again in a moment." },
+      ]);
     } finally {
       setBusy(false);
     }
@@ -113,25 +119,46 @@ export default function ChatWidget() {
       <style>{STYLES}</style>
 
       {!open && (
-        <button className="dijon-button" onClick={() => setOpen(true)} aria-label="Open chat">💬</button>
+        <button
+          className="dijon-button"
+          onClick={() => setOpen(true)}
+          aria-label="Open chat"
+          title="Chat with Dijon"
+        >
+          💬
+        </button>
       )}
 
       {open && (
         <div className="dijon-panel" role="dialog" aria-label="Dijon chat">
           <div className="dijon-header">
             <div className="dijon-title">
-              <span className="dijon-avatar"><img src={avatar} alt="Dijon" /></span>
+              <span className="dijon-avatar">
+                <img src={avatar} alt="Dijon" />
+              </span>
               Dijon
             </div>
-            <button className="dijon-close" onClick={() => setOpen(false)} aria-label="Close">×</button>
+            <button
+              className="dijon-close"
+              onClick={() => setOpen(false)}
+              aria-label="Close"
+            >
+              ×
+            </button>
           </div>
 
           <div className="dijon-body" ref={scrollRef}>
             {messages.map((m, i) => (
-              <div key={i} className={`dijon-msg ${m.role}`}>{m.content}</div>
+              <div key={i} className={`dijon-msg ${m.role}`}>
+                {m.content}
+              </div>
             ))}
             {busy && (
-              <div className="dijon-typing"><span className="dot" /><span className="dot" /><span className="dot" /></div>
+              <div className="dijon-typing">
+                <span className="dot" />
+                <span className="dot" />
+                <span className="dot" />
+              </div>
             )}
           </div>
 
@@ -144,7 +171,13 @@ export default function ChatWidget() {
               onKeyDown={onKeyDown}
               disabled={busy}
             />
-            <button className="dijon-send" onClick={send} disabled={busy || !input.trim()}>Send</button>
+            <button
+              className="dijon-send"
+              onClick={send}
+              disabled={busy || !input.trim()}
+            >
+              Send
+            </button>
           </div>
         </div>
       )}
