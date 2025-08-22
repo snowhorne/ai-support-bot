@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { sendToDijon } from "./lib/dijon";
-import avatar from "./assets/dijon-avatar.png"; // <-- put your Dijon avatar image here
+import avatar from "../assets/dijon-avatar.png"; // <-- put your Dijon avatar image here
 
 const STYLES = `
 .dijon-widget { position: fixed; right: 20px; bottom: 20px; z-index: 9999; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
