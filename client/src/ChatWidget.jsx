@@ -65,7 +65,8 @@ const getOrCreateUserId = () => {
 };
 
 export default function ChatWidget() {
-  const [open, setOpen] = useState(true);
+- const [open, setOpen] = useState(true);
++ const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
