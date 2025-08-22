@@ -1,11 +1,28 @@
 // client/src/lib/dijon.js
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
+function getApiBase() {
+  if (!API_BASE) {
+    const msg =
+      'NEXT_PUBLIC_API_BASE is not set. Please set it in your Vercel project env to your backend base URL, e.g. https://ai-support-bot.onrender.com';
+    // Log once in the browser console to help debugging
+    if (typeof window !== 'undefined') console.error('[Dijon] ' + msg);
+    throw new Error(msg);
+  }
+  return API_BASE.replace(/\/+$/, '');
+}
+
+/**
+ * Send a message to Dijon.
+ * @param {{ userId: string, message: string }} param0
+ * @returns {Promise<{ok:boolean, reply?:string, error?:string, meta?:object}>}
+ */
 export async function sendToDijon({ userId, message }) {
-  const url = `${API_BASE.replace(/\/+$/, '')}/api/chat`;
+  const base = getApiBase();
+  const url = `${base}/api/chat`;
 
   const controller = new AbortController();
-  const clientTimeout = setTimeout(() => controller.abort(), 30_000); // keep your 30s client timeout
+  const clientTimeout = setTimeout(() => controller.abort(), 30_000); // 30s client timeout
 
   try {
     const resp = await fetch(url, {
@@ -16,12 +33,10 @@ export async function sendToDijon({ userId, message }) {
       signal: controller.signal,
     });
 
-    // Pull helpful rate-limit headers if present
     const rlLimit = resp.headers.get('ratelimit-limit');
     const rlRemaining = resp.headers.get('ratelimit-remaining');
     const rlReset = resp.headers.get('ratelimit-reset');
 
-    // Success
     if (resp.ok) {
       const data = await resp.json();
       return {
@@ -36,7 +51,6 @@ export async function sendToDijon({ userId, message }) {
       };
     }
 
-    // Friendly handling for common error classes
     let err = '';
     try {
       const data = await resp.json();
@@ -45,7 +59,6 @@ export async function sendToDijon({ userId, message }) {
       err = await resp.text().catch(() => '');
     }
 
-    // 429: Too Many Requests
     if (resp.status === 429) {
       const retryAfter =
         (rlReset && Number(rlReset)) ||
@@ -64,7 +77,6 @@ export async function sendToDijon({ userId, message }) {
       };
     }
 
-    // 504: Timeout
     if (resp.status === 504) {
       return {
         ok: false,
@@ -74,7 +86,6 @@ export async function sendToDijon({ userId, message }) {
       };
     }
 
-    // 502: Upstream AI issue
     if (resp.status === 502) {
       return {
         ok: false,
@@ -84,7 +95,6 @@ export async function sendToDijon({ userId, message }) {
       };
     }
 
-    // Other errors
     return {
       ok: false,
       error: err || 'Something went wrong. Please try again.',
