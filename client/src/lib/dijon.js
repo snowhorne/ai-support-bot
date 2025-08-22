@@ -1,15 +1,30 @@
 // client/src/lib/dijon.js
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
-function getApiBase() {
-  if (!API_BASE) {
-    const msg =
-      'NEXT_PUBLIC_API_BASE is not set. Please set it in your Vercel project env to your backend base URL, e.g. https://ai-support-bot.onrender.com';
-    // Log once in the browser console to help debugging
-    if (typeof window !== 'undefined') console.error('[Dijon] ' + msg);
-    throw new Error(msg);
+// Safe default to your Render backend
+const DEFAULT_API_BASE = 'https://ai-support-bot.onrender.com';
+
+/**
+ * Resolve API base in a resilient way:
+ * 1) Build-time env (Vercel/Next-style): process.env.NEXT_PUBLIC_API_BASE
+ * 2) Runtime global override: window.__DIJON_API_BASE__  (optional)
+ * 3) Hardcoded safe default (Render URL)
+ */
+function resolveApiBase() {
+  // 1) Build-time (may be undefined if Vercel didn’t inject)
+  const fromEnv = typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_API_BASE;
+
+  // 2) Runtime override (set via <script> or in index.html)
+  const fromWindow = typeof window !== 'undefined' && window.__DIJON_API_BASE__;
+
+  const base = (fromEnv || fromWindow || DEFAULT_API_BASE || '').toString().trim();
+  if (!base) {
+    // Final guard — should never hit because of DEFAULT_API_BASE
+    if (typeof window !== 'undefined') {
+      console.error('[Dijon] No API base configured. Falling back to window.origin (unlikely).');
+    }
+    return (typeof window !== 'undefined' ? window.origin : '').replace(/\/+$/, '');
   }
-  return API_BASE.replace(/\/+$/, '');
+  return base.replace(/\/+$/, '');
 }
 
 /**
@@ -18,7 +33,7 @@ function getApiBase() {
  * @returns {Promise<{ok:boolean, reply?:string, error?:string, meta?:object}>}
  */
 export async function sendToDijon({ userId, message }) {
-  const base = getApiBase();
+  const base = resolveApiBase();
   const url = `${base}/api/chat`;
 
   const controller = new AbortController();
