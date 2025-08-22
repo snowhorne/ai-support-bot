@@ -1,3 +1,4 @@
+// server/routes/chat.js
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 
@@ -15,7 +16,7 @@ const DIJON_SYSTEM_PROMPT = `You are Dijon, a friendly, concise website support 
 - Be upbeat and practical. Avoid fluff.
 - If you can’t help, say so briefly and suggest the simplest next step.`;
 
-// ---- DB helpers ----
+// ----------------- Helpers (Prisma) -----------------
 async function getOrCreateUser(extUserId) {
   let u = await prisma.user.findUnique({ where: { extUserId } });
   if (u) return u;
@@ -24,7 +25,7 @@ async function getOrCreateUser(extUserId) {
 
 async function getOrCreateConversation(extUserId) {
   const user = await getOrCreateUser(extUserId);
-  // one active conversation per extUserId for now
+  // one active conversation per user for now
   let convo = await prisma.conversation.findFirst({
     where: { userId: user.id },
     orderBy: { createdAt: 'asc' },
@@ -33,12 +34,19 @@ async function getOrCreateConversation(extUserId) {
   return prisma.conversation.create({ data: { userId: user.id, title: null } });
 }
 
-async function loadRecentMessages(conversationId, limit = 20) {
+async function loadMessages(conversationId, { limit = 50 } = {}) {
   const msgs = await prisma.message.findMany({
     where: { conversationId },
     orderBy: { createdAt: 'asc' },
   });
-  return msgs.slice(-limit).map((m) => ({ role: m.role, content: m.content }));
+  // keep only the most recent `limit` messages for model context, but return all to the client if needed
+  const recent = msgs.slice(-limit).map((m) => ({ role: m.role, content: m.content }));
+  const allForClient = msgs.map((m) => ({
+    role: m.role,
+    content: m.content,
+    ts: m.createdAt?.getTime?.() ?? Date.parse(m.createdAt),
+  }));
+  return { recent, allForClient };
 }
 
 function buildMessages(history, userMsg) {
@@ -49,6 +57,57 @@ function buildMessages(history, userMsg) {
   ];
 }
 
+async function safeJson(resp) {
+  try {
+    return await resp.json();
+  } catch {
+    return { raw: await resp.text().catch(() => '') };
+  }
+}
+
+// ----------------- Routes -----------------
+
+// GET /api/chat/history?userId=XYZ
+router.get('/history', async (req, res) => {
+  try {
+    const userId = String(req.query.userId || '').trim();
+    if (!userId) return res.status(400).json({ error: 'Missing userId' });
+
+    const convo = await getOrCreateConversation(userId);
+    const { allForClient } = await loadMessages(convo.id, { limit: 200 }); // limit here doesn't affect allForClient
+    return res.json({ userId, messages: allForClient });
+  } catch (err) {
+    console.error('[GET /api/chat/history] error:', err);
+    return res.status(500).json({ error: 'Server error', detail: 'Unexpected error loading history.' });
+  }
+});
+
+// DELETE /api/chat/history?userId=XYZ
+router.delete('/history', async (req, res) => {
+  try {
+    const userId = String(req.query.userId || '').trim();
+    if (!userId) return res.status(400).json({ error: 'Missing userId' });
+
+    const user = await prisma.user.findUnique({ where: { extUserId: userId } });
+    if (!user) return res.json({ ok: true }); // nothing to delete
+
+    const convo = await prisma.conversation.findFirst({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!convo) return res.json({ ok: true });
+
+    await prisma.message.deleteMany({ where: { conversationId: convo.id } });
+    // keep the conversation row so future messages reuse it
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[DELETE /api/chat/history] error:', err);
+    return res.status(500).json({ error: 'Server error', detail: 'Unexpected error clearing history.' });
+  }
+});
+
+// POST /api/chat
+// body: { userId: string, message: string }
 router.post('/', async (req, res) => {
   const t0 = Date.now();
   try {
@@ -68,7 +127,8 @@ router.post('/', async (req, res) => {
       data: { conversationId: convo.id, role: 'user', content: message },
     });
 
-    const history = await loadRecentMessages(convo.id, 20);
+    // Load recent history (for model context)
+    const { recent } = await loadMessages(convo.id, { limit: 50 });
 
     // OpenAI call with 20s timeout
     const controller = new AbortController();
@@ -85,7 +145,7 @@ router.post('/', async (req, res) => {
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           temperature: 0.4,
-          messages: buildMessages(history, message),
+          messages: buildMessages(recent, message),
         }),
         signal: controller.signal,
       });
@@ -124,7 +184,7 @@ router.post('/', async (req, res) => {
     });
 
     const ms = Date.now() - t0;
-    console.log(`[chat] (pg) userId=${userId} convo=${convo.id} replied in ${ms}ms len=${aiText.length}`);
+    console.log(`[chat] (prisma) userId=${userId} convo=${convo.id} replied in ${ms}ms len=${aiText.length}`);
 
     res.json({ reply: aiText });
   } catch (err) {
@@ -132,13 +192,5 @@ router.post('/', async (req, res) => {
     res.status(500).json({ error: 'Server error', detail: 'Unexpected error. Please try again.' });
   }
 });
-
-async function safeJson(resp) {
-  try {
-    return await resp.json();
-  } catch {
-    return { raw: await resp.text().catch(() => '') };
-  }
-}
 
 export default router;
