@@ -4,8 +4,12 @@ import avatar from "./assets/dijon-avatar.png";
 
 const STYLES = `
 .dijon-widget { position: fixed; right: 20px; bottom: 20px; z-index: 9999; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+
+/* Floating launcher button */
 .dijon-button { width: 60px; height: 60px; border-radius: 50%; background:#1476ff; color:#fff; border:none; box-shadow: 0 10px 28px rgba(20,118,255,0.34); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size: 26px; }
 .dijon-button:hover { filter: brightness(1.05); }
+
+/* Chat panel sizing (desktop defaults) */
 .dijon-panel { position: absolute; right: 0; bottom: 84px;
   width: 460px; max-width: 92vw;
   max-height: 82vh; min-height: 420px;
@@ -13,25 +17,35 @@ const STYLES = `
   box-shadow: 0 22px 56px rgba(20,118,255,0.25), 0 5px 18px rgba(0,0,0,0.10);
   overflow: hidden; border: 1px solid #eaf1ff;
 }
+
+/* Mobile-friendly override */
 @media (max-width: 480px) {
   .dijon-widget { right: 12px; bottom: 12px; }
   .dijon-panel { width: 92vw; max-height: 75vh; min-height: 60vh; }
 }
+
+/* Header */
 .dijon-header { background:#1476ff; color:#fff; padding:16px 18px; display:flex; align-items:center; justify-content:space-between; }
 .dijon-title { font-weight:700; font-size:16px; display:flex; align-items:center; gap:12px; }
 .dijon-avatar { width:28px; height:28px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#fff; }
 .dijon-avatar img { width:100%; height:100%; object-fit:cover; }
 .dijon-close { background:transparent; border:none; color:#fff; font-size:22px; line-height:1; cursor:pointer; opacity:0.9; }
 .dijon-close:hover { opacity:1; }
+
+/* Body (messages area) */
 .dijon-body { padding:16px; overflow:auto; display:flex; flex-direction:column; gap:12px; background:#f7faff; flex:1; }
 .dijon-msg { max-width: 80%; padding:12px 14px; border-radius: 16px; font-size: 15px; line-height: 1.45; }
 .dijon-msg.assistant { align-self:flex-start; background:#1476ff; color:#fff; border-bottom-left-radius: 6px; }
 .dijon-msg.user { align-self:flex-end; background:#e9eefc; color:#1b1f29; border-bottom-right-radius: 6px; }
+
+/* Typing indicator */
 .dijon-typing { align-self:flex-start; display:flex; gap:6px; padding:10px 12px; background:#d6e5ff; color:#1b1f29; border-radius:12px; font-size:13px; }
 .dijon-typing .dot { width:6px; height:6px; border-radius:50%; background:#1476ff; opacity:.7; animation: dijon-blink 1.2s infinite ease-in-out; }
 .dijon-typing .dot:nth-child(2){ animation-delay: .2s; }
 .dijon-typing .dot:nth-child(3){ animation-delay: .4s; }
 @keyframes dijon-blink { 0%, 80%, 100% { transform: translateY(0); opacity:.3; } 40% { transform: translateY(-2px); opacity:1; } }
+
+/* Footer (composer) */
 .dijon-footer { border-top:1px solid #e6edff; background:#fff; padding:12px; display:flex; gap:10px; }
 .dijon-input { flex:1; padding:12px 14px; border-radius: 12px; border:1px solid #cfe0ff; outline:none; font-size:14px; }
 .dijon-input::placeholder { color:#98a6c3; }
@@ -50,7 +64,7 @@ const getOrCreateUserId = () => {
 };
 
 export default function ChatWidget() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false); // start closed
   const [busy, setBusy] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
@@ -58,21 +72,32 @@ export default function ChatWidget() {
   ]);
   const userId = useMemo(getOrCreateUserId, []);
   const scrollRef = useRef(null);
+  const inputRef = useRef(null); // ⬅️ input ref
 
+  // Auto-scroll down on new messages or typing
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, busy]);
 
+  // Autofocus the input when the panel opens
+  useEffect(() => {
+    if (open) {
+      // wait for the input to render
+      const id = requestAnimationFrame(() => inputRef.current?.focus());
+      return () => cancelAnimationFrame(id);
+    }
+  }, [open]);
+
   const send = async () => {
     const text = input.trim();
     if (!text || busy) return;
     setInput("");
+    inputRef.current?.focus(); // ⬅️ keep focus after send
     setMessages((m) => [...m, { role: "user", content: text }]);
     setBusy(true);
     try {
-      // ✅ Call helper with an object (matches signature)
       const { reply, error, detail } = await sendToDijon({ userId, message: text });
       if (error) {
         setMessages((m) => [
@@ -135,6 +160,7 @@ export default function ChatWidget() {
 
           <div className="dijon-footer">
             <input
+              ref={inputRef}
               className="dijon-input"
               placeholder="Type your message…"
               value={input}
